@@ -1,0 +1,54 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# x1=CRH, x2=ACTH, x3=Cortisol, x4=G6Pase
+
+def rep_sde(x, t, k, h, i, IS):
+    k1, k2, k3, k4, k5, kd, n, s1, s2, s3, S_mag = k
+    x1, x2, x3, x4 = x
+
+    # Circadian pulse: apply S > 1 at specific intervals
+    S = S_mag if i % IS == 0 else 1
+
+    dx1 = S * k1 * (1 - n*(x3/(kd + x3))) - (k2 * x1)
+    dx2 = (k2 * x1) - (k3 * x2)
+    dx3 = (k3 * x2) - (k4 * x3)
+    dx4 = k5 * x3
+
+    # Additive noise terms (stochastic)
+    x1_noise = s1 * x1 * np.random.normal(0, 1)
+    x2_noise = s2 * x2 * np.random.normal(0, 1)
+    x3_noise = s3 * x3 * np.random.normal(0, 1)
+    x4_noise = s3 * x4 * np.random.normal(0, 1)
+
+    return np.array([dx1 + x1_noise, dx2 + x2_noise, dx3 + x3_noise, dx4 + x4_noise])
+
+# Parameters
+start = 0
+end = 500
+h = 0.001
+IS = int(1 / h * 24)  # circadian pulse every 24 time units (adjust if needed)
+k = [0.5, 0.01, 0.04, 0.01, 0.01, 10, 0.2, 0.2, 0.2, 0.2, 2.5]
+# [k1, k2, k3, k4, k5, kd, n, s1, s2, s3, S_mag]
+
+t = np.arange(start, end, h)
+x = np.zeros((len(t), 4))   
+x0 = [1, 10, 5, 3]
+x[0, :] = x0
+
+# Euler integration with noise and circadian pulse
+for i in range(len(t) - 1):
+    dx = rep_sde(x[i, :], t[i], k, h, i, IS)
+    x[i + 1] = x[i] + h * dx
+
+# Plotting
+x1, x2, x3, x4 = x.T
+plt.plot(t, x1, label='CRH')
+plt.plot(t, x2, label='ACTH')
+plt.plot(t, x3, label='Cortisol')
+plt.plot(t, x4, label='G6Pase')
+plt.title('HPA-Gluconeogenesis Dynamics with Circadian Pulses')
+plt.xlabel('Time (Arb. Units)')
+plt.ylabel('Hormone Concentration (Arb. Units)')
+plt.legend()
+plt.show()
